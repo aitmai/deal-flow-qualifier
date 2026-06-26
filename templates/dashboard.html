@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Flow Qualifier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg:        #0A0A0F;
+    --surface:   #111118;
+    --border:    #1E1E2E;
+    --border2:   #2A2A3E;
+    --text:      #E0E0F0;
+    --muted:     #6B6B8A;
+    --accent:    #6C63FF;
+    --accent2:   #9B91FF;
+    --pass:      #10B981;
+    --watch:     #F59E0B;
+    --no:        #EF4444;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 16px; font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub   { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .status-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: var(--border);
+    color: var(--muted);
+    border: 1px solid var(--border2);
+    transition: all 0.3s;
+  }
+  .status-pill.running { background: rgba(108,99,255,0.15); color: var(--accent2); border-color: var(--accent); }
+  .status-pill.done    { background: rgba(16,185,129,0.15); color: var(--pass);    border-color: var(--pass); }
+  .status-pill.error   { background: rgba(239,68,68,0.15);  color: var(--no);      border-color: var(--no); }
+
+  #run-btn {
+    padding: 8px 20px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #run-btn:hover    { opacity: 0.85; }
+  #run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    overflow: hidden;
+    height: calc(100vh - 65px);
+  }
+
+  /* ── Left panel: log + stats ── */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .progress-track {
+    height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    width: 0%; transition: width 0.4s ease;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-cell {
+    padding: 14px 16px;
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-val  { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .stat-lbl  { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px; }
+  .val-pass  { color: var(--pass); }
+  .val-watch { color: var(--watch); }
+  .val-no    { color: var(--no); }
+
+  /* Log */
+  #log {
+    flex: 1; overflow-y: auto;
+    padding: 12px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .log-line {
+    padding: 2px 20px;
+    display: flex; gap: 10px;
+  }
+  .log-ts   { color: var(--muted); flex-shrink: 0; }
+  .log-msg  { color: var(--text); }
+  .log-msg.error { color: var(--no); }
+
+  /* ── Right panel: results table ── */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .table-wrap {
+    flex: 1;
+    overflow: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead { position: sticky; top: 0; z-index: 10; background: var(--surface); }
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    max-width: 240px;
+  }
+
+  tr:hover td { background: rgba(108,99,255,0.04); }
+
+  .score-cell {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .score-hi { color: var(--pass); }
+  .score-md { color: var(--watch); }
+  .score-lo { color: var(--no); }
+
+  .verdict-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .verdict-PASS  { background: rgba(16,185,129,0.15); color: var(--pass);  border: 1px solid rgba(16,185,129,0.4); }
+  .verdict-WATCH { background: rgba(245,158,11,0.15); color: var(--watch); border: 1px solid rgba(245,158,11,0.4); }
+  .verdict-NO    { background: rgba(239,68,68,0.15);  color: var(--no);    border: 1px solid rgba(239,68,68,0.4);  }
+  .verdict-ERROR { background: rgba(107,107,138,0.15);color: var(--muted); border: 1px solid var(--border2); }
+
+  .total-score {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .company-name { font-weight: 600; font-size: 14px; }
+  .company-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .text-cell    { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .next-step    { font-size: 12px; color: var(--accent2); font-style: italic; }
+
+  .empty-state {
+    padding: 60px 32px;
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 2;
+  }
+  .empty-state .big { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.3; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-mark">DQ</div>
+    <div>
+      <div class="header-title">Deal Flow Qualifier</div>
+      <div class="header-sub">AI-powered VC screening · claude-sonnet-4-6</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill" id="status-pill">IDLE</div>
+    <button id="run-btn" onclick="runAnalysis()">▶ Run Analysis</button>
+  </div>
+</header>
+
+<main>
+  <!-- Left panel -->
+  <div class="left-panel">
+    <div class="panel-header">Pipeline Log</div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Progress</span>
+        <span id="prog-label">— / —</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="prog-fill"></div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-cell">
+        <div class="stat-val val-pass" id="ct-pass">—</div>
+        <div class="stat-lbl">Pass</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val val-watch" id="ct-watch">—</div>
+        <div class="stat-lbl">Watch</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val val-no" id="ct-no">—</div>
+        <div class="stat-lbl">No</div>
+      </div>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="right-panel">
+    <div class="panel-header" style="padding:14px 20px;border-bottom:1px solid var(--border);">Scorecard Results</div>
+    <div class="table-wrap">
+      <div class="empty-state" id="empty-state">
+        <span class="big">◎</span>
+        Add deals to the <strong>Deal-Submissions</strong> tab<br>
+        in your Google Sheet, then click <strong>▶ Run Analysis</strong>
+      </div>
+      <table id="results-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th style="text-align:center">Mkt</th>
+            <th style="text-align:center">Team</th>
+            <th style="text-align:center">Traction</th>
+            <th style="text-align:center">Moat</th>
+            <th style="text-align:center">BizMdl</th>
+            <th style="text-align:center">CapEff</th>
+            <th style="text-align:center">Risk</th>
+            <th style="text-align:center">Total</th>
+            <th style="text-align:center">Verdict</th>
+            <th>Strengths</th>
+            <th>Concerns</th>
+            <th>Next Step</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  let evtSource = null;
+
+  function scoreClass(n) {
+    if (n >= 8) return 'score-hi';
+    if (n >= 6) return 'score-md';
+    return 'score-lo';
+  }
+
+  function scoreCell(n) {
+    if (!n && n !== 0) return '<td class="score-cell">—</td>';
+    return `<td class="score-cell ${scoreClass(n)}">${n}</td>`;
+  }
+
+  function totalClass(t) {
+    if (t >= 80) return 'val-pass';
+    if (t >= 60) return 'val-watch';
+    return 'val-no';
+  }
+
+  function renderResults(results) {
+    if (!results || results.length === 0) return;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('results-table').style.display = 'table';
+
+    const tbody = document.getElementById('results-body');
+    tbody.innerHTML = '';
+
+    let pass = 0, watch = 0, no = 0;
+
+    results.forEach(r => {
+      const s = r.scores || {};
+      const v = (r.verdict || 'NO').toUpperCase();
+      if (v === 'PASS') pass++;
+      else if (v === 'WATCH') watch++;
+      else no++;
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>
+          <div class="company-name">${r.company || '—'}</div>
+          <div class="company-meta">${r.sector || ''} · ${r.stage || ''}</div>
+        </td>
+        ${scoreCell(s.market_size)}
+        ${scoreCell(s.team)}
+        ${scoreCell(s.traction)}
+        ${scoreCell(s.moat)}
+        ${scoreCell(s.business_model)}
+        ${scoreCell(s.capital_efficiency)}
+        ${scoreCell(s.risk)}
+        <td class="score-cell total-score ${totalClass(r.total_score)}">${r.total_score || 0}/100</td>
+        <td style="text-align:center"><span class="verdict-badge verdict-${v}">${v}</span></td>
+        <td class="text-cell">${r.strengths || '—'}</td>
+        <td class="text-cell">${r.concerns || '—'}</td>
+        <td class="next-step">${r.next_step || '—'}</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    document.getElementById('ct-pass').textContent  = pass;
+    document.getElementById('ct-watch').textContent = watch;
+    document.getElementById('ct-no').textContent    = no;
+  }
+
+  function addLog(ts, msg) {
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    const isErr = msg.toLowerCase().startsWith('error');
+    div.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg${isErr ? ' error' : ''}">${msg}</span>`;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function setStatus(status) {
+    const pill = document.getElementById('status-pill');
+    pill.textContent = status.toUpperCase();
+    pill.className = `status-pill ${status}`;
+  }
+
+  function runAnalysis() {
+    const btn = document.getElementById('run-btn');
+    btn.disabled = true;
+    document.getElementById('log').innerHTML = '';
+    document.getElementById('results-body').innerHTML = '';
+    document.getElementById('results-table').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('ct-pass').textContent  = '—';
+    document.getElementById('ct-watch').textContent = '—';
+    document.getElementById('ct-no').textContent    = '—';
+    document.getElementById('prog-fill').style.width = '0%';
+    document.getElementById('prog-label').textContent = '— / —';
+
+    if (evtSource) { evtSource.close(); evtSource = null; }
+
+    fetch('/run', { method: 'POST' })
+      .then(r => r.json())
+      .then(() => {
+        setStatus('running');
+        evtSource = new EventSource('/stream');
+
+        evtSource.onmessage = (e) => {
+          const d = JSON.parse(e.data);
+
+          if (d.type === 'log') {
+            addLog(d.ts, d.msg);
+          }
+
+          if (d.type === 'state') {
+            if (d.total > 0) {
+              const pct = Math.round((d.progress / d.total) * 100);
+              document.getElementById('prog-fill').style.width = pct + '%';
+              document.getElementById('prog-label').textContent = `${d.progress} / ${d.total}`;
+            }
+            if (d.results && d.results.length > 0) {
+              renderResults(d.results);
+            }
+            if (d.status === 'done' || d.status === 'error') {
+              setStatus(d.status);
+              btn.disabled = false;
+              evtSource.close();
+            }
+          }
+        };
+
+        evtSource.onerror = () => {
+          setStatus('error');
+          btn.disabled = false;
+          if (evtSource) evtSource.close();
+        };
+      })
+      .catch(err => {
+        addLog(new Date().toTimeString().slice(0,8), 'Failed to start: ' + err);
+        setStatus('error');
+        btn.disabled = false;
+      });
+  }
+</script>
+</body>
+</html>
