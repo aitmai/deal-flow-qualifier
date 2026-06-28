@@ -5,3 +5,8 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+
+# Auto-added by gitpush.py
+secrets.json
+service_account.json
+token.json
